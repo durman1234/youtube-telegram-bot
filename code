@@ -1,0 +1,88 @@
+import os
+import asyncio
+import logging
+from telegram import Update
+from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
+import yt_dlp
+
+# Настройки
+BOT_TOKEN = "8487243011:AAEehbVuTgPJ2dPQIDtppO6EsyOjH9yWIzg"
+ALLOWED_USERS = {
+    452319578: "Владелец",  # Ваш ID
+    # Добавьте другие ID через /add_user
+}
+TEMP_DIR = "/data/data/com.termux/files/home/storage/downloads/yt_audio"
+os.makedirs(TEMP_DIR, exist_ok=True)
+
+YTDLP_OPTS = {
+    'format': 'bestaudio/best',
+    'outtmpl': os.path.join(TEMP_DIR, '%(title)s.%(ext)s'),
+    'postprocessors': [{
+        'key': 'FFmpegExtractAudio',
+        'preferredcodec': 'mp3',
+        'preferredquality': '192',
+    }],
+    'quiet': True,
+}
+
+async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    if user_id not in ALLOWED_USERS:
+        await update.message.reply_text("🚫 У вас нет доступа")
+        return
+    
+    url = update.message.text.strip()
+    if not url.startswith(('http://', 'https://')):
+        return
+    
+    try:
+        with yt_dlp.YoutubeDL(YTDLP_OPTS) as ydl:
+            info = await asyncio.to_thread(ydl.extract_info, url, download=True)
+            audio_file = ydl.prepare_filename(info).replace('.webm', '.mp3')
+            
+            with open(audio_file, 'rb') as audio:
+                await update.message.reply_audio(
+                    audio=audio,
+                    title=info.get('title', 'audio')[:64],
+                    performer="YouTube"
+                )
+    except Exception as e:
+        await update.message.reply_text(f"❌ Ошибка: {str(e)}")
+    finally:
+        if 'audio_file' in locals():
+            try: os.remove(audio_file)
+            except: pass
+
+async def add_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != 452319578:  # Только владелец
+        return
+    
+    try:
+        new_id = int(context.args[0])
+        ALLOWED_USERS[new_id] = "Новый пользователь"
+        await update.message.reply_text(f"✅ Пользователь {new_id} добавлен")
+    except:
+        await update.message.reply_text("❌ Используйте: /add_user <ID>")
+
+async def list_users(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != 452319578:
+        return
+    
+    users_list = "\n".join([f"{k}: {v}" for k, v in ALLOWED_USERS.items()])
+    await update.message.reply_text(f"👥 Доступные пользователи:\n{users_list}")
+
+def main():
+    app = Application.builder().token(BOT_TOKEN).build()
+    
+    app.add_handler(CommandHandler("add_user", add_user))
+    app.add_handler(CommandHandler("list_users", list_users))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    
+    logging.basicConfig(
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        level=logging.INFO
+    )
+    app.run_polling()
+
+if __name__ == "__main__":
+    main()
