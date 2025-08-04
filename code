@@ -6,9 +6,9 @@ from telegram.ext import Application, CommandHandler, MessageHandler, filters, C
 import yt_dlp
 
 # Настройки
-BOT_TOKEN = "8487243011:AAEehbVuTgPJ2dPQIDtppO6EsyOjH9yWIzg"
+BOT_TOKEN = "
 ALLOWED_USERS = {
-    452319578: "Владелец",  # Ваш ID
+    : "Владелец",  # Ваш ID
     # Добавьте другие ID через /add_user
 }
 TEMP_DIR = "/data/data/com.termux/files/home/storage/downloads/yt_audio"
